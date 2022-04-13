@@ -49,19 +49,19 @@ class UpdateMatrices(object):
         #print(fileName)
         data = TAQTradesReader(baseDir + "/" + fileName)
 
-        startTS930 = 18*60*60*1000/2
+        startTS930 = 19*60*60*1000/2
         endTS1530 = 31*60*60*1000/2
         endTS1600 = 16*60*60*1000
         
         
         #M1 average of 2min return
-        returnBuckets = ReturnBuckets(data,startTS930,endTS1600,210)
+        returnBuckets = ReturnBuckets(data,startTS930,endTS1600,195)
         returnList = []
-        for i in range(210):
+        for i in range(195):
             singleReturn = returnBuckets.getReturn(i)
             if singleReturn is not None:
                 returnList.append(singleReturn)
-        sigma = np.std(returnList) * np.sqrt(210)
+        sigma = np.std(returnList) * np.sqrt(195)
         self.M1[tickerIndex][dayIndex]=sigma
         #Tests:
         """
