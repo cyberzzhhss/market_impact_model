@@ -129,7 +129,7 @@ class Regression(object):
         self.residNormalityPVal = pval
 
 
-    def cleanMatrices(self, matrices, cutoff=10):
+    def cleanMatrices(self, matrices, cutoff=40):
         # EXPE 173, MKC 306, MXM 323, NE 329, RTN 400
         # Only remove EXPE, MKC, MXM, NE, RTN tickers
         # They are at idx position [173, 306, 323, 329, 400]

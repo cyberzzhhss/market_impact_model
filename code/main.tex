@@ -1,0 +1,564 @@
+\documentclass{article}
+
+% Language setting
+% Replace `english' with e.g. `spanish' to change the document language
+\usepackage[english]{babel}
+
+% Set page size and margins
+% Replace `letterpaper' with `a4paper' for UK/EU standard size
+\usepackage[letterpaper,top=2cm,bottom=2cm,left=3cm,right=3cm,marginparwidth=1.75cm]{geometry}
+
+% Useful packages
+\usepackage{amsmath}
+\usepackage{float}
+
+\usepackage{graphicx}
+\usepackage[colorlinks=true, allcolors=blue]{hyperref}
+
+\title{Algorithmic Trading Homework 2 Report}
+\usepackage{authblk}
+
+\author{Zhehan Shi}
+\affil{New York University}
+% \author[2]{Zhehan Shi}
+% \author[3]{Xiaobin Ou}
+
+\begin{document}
+\date{March 27, 2022}
+\maketitle
+
+\begin{abstract}
+There are 3 parts. Part 1 is an implementation of modified Almgren-Chriss Market Impact Model. Part 2 is the response to the Optimal Execution. Part 3 is an discussion to the Standard Concepts of Statistical Trading.
+\end{abstract}
+
+\section{Impact Model}
+The impact of large trades on market prices is a extensively discussed but scarcely measured phenomenon, of utmost importance to sell-side and buy-side participants. We performed an analysis on a large data set from the TAQ Dataset. We selected 506 stocks and 65 days, ranging from 20070620 to 20070920. We later cleaned the defect stocks data, and narrowed down to 501 stocks and 65 days. 
+\subsection{Data Manipulation}
+
+Instead of using raw data, we transformed data into 501 by 55 matrix for each of the input, such as the value between 9:30 AM to 3:30 PM. We performed a 10-day look-back calculation on both the average daily value and the standard deviation of 2-minute mid-quote returns that was already scaled to a day. Since we needed to find a 10-day look-back value, we discarded the days from day 1 to day 10 for all the other inputs.
+
+\subsection{Modified Model} 
+The non-linear regression we used for Almgren-Chriss model is 
+$$h = \eta \sigma (\frac{X}{\frac{6}{6.5}V})^{\beta} + <noise>$$
+\begin{table}[ht]
+\centering
+\begin{tabular}{l}
+  $X \quad \text{is the imbalance between 9:30AM and 3:30PM}$\\
+  $V \quad \text{is the average daily value}$ \\ 
+  $\sigma \quad \text{is the standard deviation of 2-min returns scaled to 1 day}$\\
+  $\eta \quad \text{is what we want to know}$\\
+  $\beta \quad \text{is what we want to know}$
+\end{tabular}
+\end{table}
+
+We used the above regression model to estimate for $\eta$ and $\beta$. Instead of using volume for Almgren-Chriss model, we choose to use value, calculated using volume-weighted average price and volume. We also modified the imbalance accordingly. 
+
+$$\text{value} = \text{volume} \times \text{VWAP}$$
+\subsection{Bootstrapped Results}
+% \subsubsection{Description}
+
+After the non-linear regression, we used two bootstrap techniques, paired bootstrap and residual bootstrap to estimate the standard error for $\eta$ and $\beta$. We generated 10,000 $\eta$ and $\beta$ in both residual and paired bootstrap. Afterwards, we used 2 tailed t-test to calculate the p value. The findings for both bootstraps are in the Table~\ref{tab:params}.
+% Use the table and tabular environments for basic tables --- see Table~\ref{tab:params}, for example. For more information, please see this help article on \href{https://www.overleaf.com/learn/latex/tables}{tables}. 
+
+% This is the Table~\ref{tab:params} for $\eta$ and $\beta$
+\begin{table}[ht]
+\centering
+\begin{tabular}{l|r}
+Parameters & Value \\\hline
+$\eta$ & 4.8122 \\
+$ t_{\eta}$  residual & 3.2322 \\
+$ t_{\eta}$ residual p value  & 0.0012 \\ 
+$ t_{\eta}$  paired & 3.6706 \\
+$ t_{\eta}$ paired p value  & 0.0002\\\hline 
+$\beta$ & 0.8351 \\
+$t_{\beta}$ residual & 3.1653 \\
+$t_{\beta}$ residual p value & 0.0016 \\
+$t_{\beta}$ paired & 2.0203 \\
+$t_{\beta}$ paired p value & 0.0434 \\
+\end{tabular}
+\caption{\label{tab:params}Parameters}
+\end{table}
+
+If we assumed a p-value of 0.05, then, from the table above, we noticed that both $\eta$ and $\beta$ were statistically significant in both the paired bootstrap and the residual bootstrap. In other words, the $\eta$ and the $\beta$ were valid.
+
+\subsection{Residual Analysis}
+\subsubsection{Normality of Residuals}
+We set out to verify the assumptions for residuals. We performed a normality test, and the p value was 0, which was smaller than assumed alpha 0.05. We rejected the null hypothesis, and concluded that the residuals was not normally distributed. Figure \ref{fig:qqplot} and Figure \ref{fig:histplot} confirmed our result. They were two plots about the residuals. This was a violation of one of the assumptions of the non-linear regression.
+
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.3\textwidth]{qqplot.png}
+\caption{\label{fig:qqplot}The qqplot}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.3\textwidth]{histplot.png}
+\caption{\label{fig:histplot}The histogram}
+\end{figure}
+
+\subsubsection{Homoskedasticicty of Residuals (Extra Credit)}
+We performed a Breusch-Pagan test with p-value of 0.3226. We could not reject the null hypothesis, concluding that the the residuals are homoskedastic. This result satisfied the assumption.
+\subsubsection{Zero Mean of Residuals}
+We performed a t-test with p-value of 0.4869. We could not reject the null hypothesis, concluding that the the mean is zero. This result satisfied the assumption.
+
+\subsubsection{Independence of Residuals}
+We performed a Durbin-Watson test. It returned a t-statistic of 2.0426. Since the t-statistic was near to 2 in Durbin-Watson test, we could conclude that the residuals were Independent. This result satisfied the assumption.
+
+\subsection{The Influence of Stock Activity on $\eta$ and $\beta$}
+
+\subsubsection{Methodology}
+We split the stocks into 2 halves based on the total value in 65 days. Value was calculated the same as before, a product of volume and VWAP at the corresponding time. The stocks with high value were labeled active, and low value were labeled inactive.
+The $\eta$ and $\beta$ were calculated on each dataset.
+
+\subsubsection{Activity Results}
+We found that the stock activity did influence the parameters $\eta$ and $\beta$. They looked fairly different from one another.
+
+\begin{table}[ht]
+\centering
+\begin{tabular}{l|r}
+Parameters & Value \\\hline
+Active Stocks \\ \hline
+$\eta$ & 10.5237  \\
+$\beta$ & 0.8800  \\\hline
+Inactive Stocks  \\ \hline
+$\eta$ & 3.2514  \\
+$\beta$ & 1.1190 \\
+\end{tabular}
+\caption{\label{tab:activity}Parameter Comparison}
+\end{table}
+
+Therefore, we could conclude that the active stocks had a higher $\eta$ and lower $\beta$ than those of the inactive stocks. The stock activity did have an influence on the parameters.
+% Your introduction goes here! Simply start writing your document and use the Recompile button to view the updated PDF preview. Examples of commonly used commands and features are listed below, to help you get started.
+
+% Once you're familiar with the editor, you can find various project setting in the Overleaf menu, accessed via the button in the very top left of the editor. To view tutorials, user guides, and further documentation, please visit our \href{https://www.overleaf.com/learn}{help library}, or head to our plans page to \href{https://www.overleaf.com/user/subscription/plans}{choose your plan}.
+
+
+\section{Optimal Execution}
+This is a response to problem 2.
+\subsection*{a}
+\subsubsection*{i}
+The resulting HJB takes the form 
+\begin{equation}
+    \begin{split}
+        0 = (\partial_t +\dfrac{1}{2} \sigma^2\partial_{ss})H - \phi q^2 + \sup_{v}((v(S-kv)\partial x - bv\partial v - v \partial q)H)\label{eq:1}
+    \end{split}
+\end{equation}
+subject to 
+\begin{equation*}
+    \begin{split}
+        H(T,x,S,q) = x + Sq - \alpha q^2
+    \end{split}
+\end{equation*}
+The first order condition gives: 
+\begin{equation*}
+    \begin{split}
+       \dfrac{\partial((v(S-kv)\partial x - bv\partial v - v \partial q)H)}{\partial v} &=0\\
+       S\partial_{x}H - 2vk\partial_{x}H - b\partial_{s}H - \partial_{q}H &=0\\
+       v^{\star} &= \dfrac{S\partial_{x}H - b\partial_{s}H - \partial_{q}H}{2k\partial_{x}H}\\
+    \end{split}
+\end{equation*}
+Substituting the expression for $v^{\star}$ into Equation \eqref{eq:1} gives 
+\begin{equation}
+    \begin{split}
+        0 = (\partial_t +\dfrac{1}{2} \sigma^2\partial_{ss})H - \phi q^2 + \dfrac{1}{4k}\dfrac{(S\partial_{x}H - b\partial_{s}H - \partial_{q}H)^2}{\partial_{x}H}\label{eq:2}
+    \end{split}
+\end{equation}
+We make the ansatz
+\begin{equation*}
+    \begin{split}
+       H(t,x,S,q) = x + Sq + h(t,S,q)
+    \end{split}
+\end{equation*}
+where $h(T,S,q) = -\alpha q^2$.\\
+Equation \eqref{eq:2} thus becomes:
+\begin{equation}
+    \begin{split}
+        0 = (\partial_t +\dfrac{1}{2} \sigma^2\partial_{ss})h - \phi q^2 + \dfrac{1}{4k}(b(q+\partial_{s}h)+\partial_{q}h)^2\label{eq:3}
+    \end{split}
+\end{equation}
+We observe that Equation \eqref{eq:3} doesn't explicitly depend on $S$. $h(T,S,q)$ is also independent of $S$. Therefore we can write,
+\begin{equation*}
+    \begin{split}
+       h(t,S,q) = h(t,q)
+    \end{split}
+\end{equation*}
+Equation \eqref{eq:3} becomes\\
+\begin{equation*}
+    \begin{split}
+        0 = (\partial_{t}h - \phi q^2 +\dfrac{1}{4k}(b(q+\partial_{s}h)+\partial_{q}h)^2
+    \end{split}
+\end{equation*}
+The expression for $v^{\star}$ also simplifies to
+\begin{equation*}
+    \begin{split}
+        v^{\star} &= -\dfrac{1}{2k}(\partial_{q}h +bq)
+    \end{split}
+\end{equation*} 
+By separation of variable, let 
+\begin{equation*}
+    \begin{split}
+        h(t,q) = h_{2}(t)q^2
+    \end{split}
+\end{equation*} 
+Therefore,\\
+\begin{equation*}
+    \begin{split}
+        0 &= \partial_{t}h_{2} - \phi +\dfrac{1}{k}(h_{2} + \dfrac{1}{2}b)^2\\
+        h_{2}(T) &= -\alpha\\
+    \end{split}
+\end{equation*}
+Rewrite $h_{2}(t) = -\dfrac{1}{2}b + \chi(t)$ with $\chi(T) = \dfrac{1}{2}b - \alpha$:
+\begin{equation*}
+    \begin{split}
+        0 &= \partial_{t}\chi - \phi +\dfrac{1}{k}\chi^2\\
+        0 &= \partial_{t}\chi k- \phi k +\chi^2\\
+        \dfrac{\partial_{t}\chi k}{\phi k - \chi^2} &= \dfrac{1}{k}\\
+        \int_{t}^{T}  \dfrac{\partial_{t}\chi k}{\phi k - \chi^2}  ds &=\int_{t}^{T} \dfrac{1}{k} ds\\
+        \log(\dfrac{\sqrt{k\phi}+\chi(T)}{\sqrt{k\phi}-\chi(T)}) - \log(\dfrac{\sqrt{k\phi}+\chi(t)}{\sqrt{k\phi}-\chi(t)} &= 2 \sqrt{\phi}{k}(T-t)\\
+    \end{split}
+\end{equation*}
+Rewriting gives 
+\begin{equation*}
+    \begin{split}
+        \chi(t) = \sqrt{k\phi}\dfrac{1+\zeta e^{2\gamma (T-t)}}{1-\zeta e^{2\gamma (T-t)}}
+    \end{split}
+\end{equation*}
+Therefore,
+\begin{equation*}
+    \begin{split}
+        v^{\star} &=-\dfrac{1}{2k}(\partial q (-\dfrac{1}{2}b+ \sqrt{k\phi}\dfrac{1+\zeta e^{2\gamma (T-t)}}{1-\zeta e^{2\gamma (T-t)}}q^2)+bq)\\
+        &= - \sqrt{\dfrac{\phi}{k}}\dfrac{1+\zeta e^{2\gamma (T-t)}}{1-\zeta e^{2\gamma (T-t)}}Q_{t}^{v^{\star}}
+    \end{split}
+\end{equation*}
+Note that as $dQ_{t}^{v} = -v_{t} dt$,\\
+\begin{equation*}
+    \begin{split}
+       dQ_{t}^{v^{\star}} &= \sqrt{\dfrac{\phi}{k}}\dfrac{1+\zeta e^{2\gamma (T-t)}}{1-\zeta e^{2\gamma (T-t)}}Q_{t}^{v^{\star}} dt\\
+       Q_{t}^{v^{\star}} &= q_{0} \cdot e^{\int_{0}^{t} \sqrt{\dfrac{\phi}{k}}\dfrac{1+\zeta e^{2\gamma (T-t)}}{1-\zeta e^{2\gamma (T-t)}} ds}\\
+       &= q_{0} \cdot e^{\log(e^{-\gamma (T-s) - \zeta e^{\gamma (T-s)}})\Big|_{0}^{t}}\\
+       &=q_{0} \cdot \dfrac{\zeta e^{\gamma (T-t)} - e^{-\gamma (T-t)} }{\zeta e^{\gamma T} - e^{-\gamma T}}
+    \end{split}
+\end{equation*}
+
+\subsubsection*{ii}
+As, $\lim \phi \to 0$, the expression for $v^{\star}$ simplifies to\\
+\begin{equation*}
+    \begin{split}
+       v_{t}^{\star} &= \dfrac{-2q h_{2}}{2k}
+    \end{split}
+\end{equation*}
+where $\dfrac{dh_{2}}{h_{2}^{2}} = -\dfrac{1}{k} +C $.
+Given the terminal condition, it can be easily calculated that 
+\begin{equation*}
+    C = -\dfrac{1}{\alpha} -\dfrac{T}{K}
+\end{equation*}
+Substituting gives 
+\begin{equation*}
+    \begin{split}
+       h_{2} = -\dfrac{\alpha k}{\alpha(T - t)-k} 
+    \end{split}
+\end{equation*}
+Therefore, 
+\begin{equation*}
+    \begin{split}
+       v_{t}^{\star} &= ((T-t) +\dfrac{k}{\alpha})^{-1} Q_{t}^{v^{\star}}, \lim \phi\to 0
+    \end{split}
+\end{equation*}
+Similarly, the expression for $Q_{t}^{v^{\star}}$ can be simplified to 
+\begin{equation*}
+    \begin{split}
+       Q_{t}^{v^{\star}} &= 1 - \dfrac{t}{T + \dfrac{k}{\alpha}} , \lim \phi\to 0
+    \end{split}
+\end{equation*}
+Note that as $\phi$ approaches $0$, the running penalty in the model disappears, and the expressions for $Q_{t}^{v^{\star}}$ and $v_{t}^{\star}$ are therefore identical to the results of the scenario with only terminal penalty.
+
+\subsection*{b}
+\subsubsection*{i}
+The resulting HJB takes the form 
+\begin{equation*}
+    \begin{split}
+        0 = \partial_{t} H + \mu \partial_{s} H + \dfrac{1}{2} \sigma^2 \partial_{ss} H + \sup_{v}((S-kv)v - v(\partial_{q} H))
+    \end{split}
+\end{equation*}
+subject to 
+\begin{equation*}
+    \begin{split}
+        H(T,S,q) =q(S - \alpha q)
+    \end{split}
+\end{equation*}
+The first order condition gives: 
+\begin{equation*}
+    \begin{split}
+       \dfrac{\partial((S-kv)v - v(\partial_{q} H))}{\partial v} &=0\\
+       S - 2kv - \partial_{q} H &=0\\
+       v^{\star} &= \dfrac{S - \partial_{q} H }{2k}\\
+    \end{split}
+\end{equation*}
+\subsubsection*{ii}
+Substituting the expression for $v^{\star}$ into the HJB gives,\\
+\begin{equation*}
+    \begin{split}
+        0 = \partial_{t} H + \mu \partial_{s} H + \dfrac{1}{2} \sigma^2 \partial_{ss} H + \dfrac{(S- \partial_{q}H)^{2}}{4k}
+    \end{split}
+\end{equation*}
+We make the ansatz
+\begin{equation*}
+    \begin{split}
+       H(t,x,S,q) = Sq + h(t,S,q)
+    \end{split}
+\end{equation*}
+where $h(T,S,q) = -\alpha q^2$.\\
+The HJB equation can therefor be written as,\\
+\begin{equation*}
+    \begin{split}
+       0 = \partial_{t} h + \mu(q +\partial_{s} h) + \dfrac{1}{2} \sigma^2 \partial_{ss} H + \dfrac{(S- \partial_{q}h)^{2}}{4k}
+    \end{split}
+\end{equation*}
+where $h(T,S,q) = -\alpha q^2$.\\
+Similar to the previous section, we can make the simplification $h(t,S,q) = h(t,q)$.\\
+We rewrite\\
+\begin{equation*}
+    h(t,q) = h_{0}(t) +h_{1}(t)q +h_{2}(t)q^{2},
+\end{equation*}
+where at terminal time:
+\begin{equation*}
+    \begin{split}
+      h_{0}(T) &= 0\\
+      h_{0}(T) &= 0\\
+      h_{2}(T) &= -\alpha
+    \end{split}
+\end{equation*}
+Noting that\\
+\begin{equation*}
+    \begin{split}
+      \partial_{t}h &= h_{0}'+h_{1}'q+h_{2}'q^2\\
+      \partial_{q}h &=h_{1}+2qh_{2}
+    \end{split}
+\end{equation*}
+The HJB expression thus becomes:\\
+\begin{equation*}
+    \begin{split}
+      h_{0}'+h_{1}'q+h_{2}'q^2+\mu q + \dfrac{(h_{1} + 2qh_{2})^{2}}{4k}&=0\\
+      (h_{2}' +\dfrac{(h_{2})^{2}}{k})q^{2} + (h_{1}' + \mu + \dfrac{h_{1}h_{2}}{k})q + (h_{0}' +\dfrac{h_{1}^{2}}{4k}) &=0
+    \end{split}
+\end{equation*}
+As this holds for $\forall t \geq 0$, $\forall q \geq 0$, 
+\begin{equation*}
+    \begin{split}
+      h_{2}' +\dfrac{(h_{2})^{2}}{k}&=0\\
+      h_{1}' + \mu + \dfrac{h_{1}h_{2}}{k}&=0\\
+      h_{2}' +\dfrac{h_{2}^{2}}{4k} &=0
+    \end{split}
+\end{equation*}
+Solving the third ODE gives,\\
+\begin{equation*}
+    \begin{split}
+      \dfrac{dh_{2}}{h_{2}^{2}} &= -\dfrac{1}{k} +C
+    \end{split}
+\end{equation*}
+As $h_{2}(T) = -\alpha$,
+\begin{equation}
+    \begin{split}
+     h_{2}(t)&= \dfrac{\alpha k}{\alpha (t-T) - k} \label{eq:4}
+    \end{split}
+\end{equation}
+Solving the second ODE gives,\\
+\begin{equation*}
+    \begin{split}
+     h_{1}' - \dfrac{1}{T - t + \dfrac{k}{\alpha}}h_{1} &= -\mu\\
+    \end{split}
+\end{equation*}
+Let $p(t) = e^{-\int\dfrac{1}{T-t+\dfrac{k}{\alpha}}ds} = t-T-\dfrac{k}{\alpha}$,
+\begin{equation*}
+    \begin{split}
+     p(t)h_{1}' - \dfrac{p(t)}{T - t + \dfrac{k}{\alpha}}h_{1} &= -\mu p(t)\\
+     d(p(t)h_{1}) &= \mu(T-t+\dfrac{k}{\alpha})dt\\
+    \end{split}
+\end{equation*}
+As $h_{1}(T) = 0$,
+\begin{equation}
+    \begin{split}
+     h_{1}(t)&= \dfrac{\dfrac{\mu}{2}(T-t) ((T-t) +\dfrac{2k}{\alpha} )}{T-t+\dfrac{k}{\alpha}} \label{eq:5}
+    \end{split}
+\end{equation}
+Combining Equation \eqref{eq:4} and \eqref{eq:5} gives the expression for $v^{\star}$\\
+\begin{equation*}
+    \begin{split}
+     v^{\star} & = \dfrac{S - \partial_{q}H}{2k}\\
+     &=-\dfrac{h_{1} + 2qh_{2}}{2k}\\
+     &= \dfrac{Q_{t}^{v^{\star}}}{T-t+\dfrac{k}{\alpha}} - \dfrac{1}{4k}\mu (T-t)\dfrac{T-t+\dfrac{2k}{\alpha}}{T-t+\dfrac{k}{\alpha}}
+    \end{split}
+\end{equation*}
+
+\subsubsection*{iii}
+From above we have
+\begin{equation*}
+    \begin{split}
+     v^{\star} & = -\dfrac{dQ_{t}^{v^{\star}}}{dt}\\
+     &= \dfrac{Q_{t}^{v^{\star}}}{T-t+\dfrac{k}{\alpha}} - \dfrac{1}{4k}\mu (T-t)\dfrac{T-t+\dfrac{2k}{\alpha}}{T-t+\dfrac{k}{\alpha}}
+    \end{split}
+\end{equation*}
+Hence,
+\begin{equation*}
+    \begin{split}
+     Q_{t}^{v^{\star}} &= - \int_{0}^{t} \dfrac{Q_{t}^{v^{\star}}}{T-s+\dfrac{k}{\alpha}} - \dfrac{\mu(T-s)}{4k}\dfrac{T-s+\dfrac{2k}{\alpha}}{T-s+\dfrac{k}{\alpha}} ds
+    \end{split}
+\end{equation*}
+Denote 
+\begin{equation*}
+    \begin{split}
+     Q_{\infty} = \lim_{\alpha \to \infty}Q_{t}^{v^{\star}} &= -  \int_{0}^{t} \dfrac{Q_{\infty}}{T-s} - \dfrac{\mu(T-s)}{4k} ds\\
+    \end{split}
+\end{equation*}
+We find 
+\begin{equation*}
+    \begin{split}
+        Q_{\infty}' &= \dfrac{Q_{\infty}}{T-t} - \dfrac{\mu(T-t)}{4k}
+    \end{split}
+\end{equation*}
+
+\begin{equation*}
+    \begin{split}
+     Q_{\infty}' - \dfrac{Q_{\infty}}{T-t} = -\dfrac{\mu(T-t)}{4k}
+    \end{split}
+\end{equation*}
+Multiplying $e^{\int \dfrac{1}{T-s}ds} = \dfrac{1}{T-t}$ to both sides gives
+\begin{equation*}
+    \begin{split}
+        d(e^{\int \dfrac{1}{T-s}ds} Q_{\infty}) &= -\dfrac{\mu dt}{4k}\\
+        \dfrac{Q_{\infty}}{T-t} &= \dfrac{\mu}{4k} +C
+    \end{split}
+\end{equation*}
+where it can be easily calculated that $C= \dfrac{q_{0}}{T}$.\\
+Therefore, $\lim_{\alpha \to \infty} Q_{t}^{v^{\star}} = (T-t)(\dfrac{\mu t}{4k} + \dfrac{q_{0}}{T})$.
+% \section{Some examples to get started}
+
+% \subsection{How to create Sections and Subsections}
+
+% Simply use the section and subsection commands, as in this example document! With Overleaf, all the formatting and numbering is handled automatically according to the template you've chosen. If you're using Rich Text mode, you can also create new section and subsections via the buttons in the editor toolbar.
+
+% \subsection{How to include Figures}
+
+% First you have to upload the image file from your computer using the upload link in the file-tree menu. Then use the includegraphics command to include it in your document. Use the figure environment and the caption command to add a number and a caption to your figure. See the code for Figure \ref{fig:frog} in this section for an example.
+
+% Note that your figure will automatically be placed in the most appropriate place for it, given the surrounding text and taking into account other figures or tables that may be close by. You can find out more about adding images to your documents in this help article on \href{https://www.overleaf.com/learn/how-to/Including_images_on_Overleaf}{including images on Overleaf}.
+
+% \begin{figure}
+% \centering
+% \includegraphics[width=0.3\textwidth]{frog.jpg}
+% \caption{\label{fig:frog}This frog was uploaded via the file-tree menu.}
+% \end{figure}
+
+% \subsection{How to add Tables}
+
+% Use the table and tabular environments for basic tables --- see Table~\ref{tab:widgets}, for example. For more information, please see this help article on \href{https://www.overleaf.com/learn/latex/tables}{tables}. 
+
+% \begin{table}
+% \centering
+% \begin{tabular}{l|r}
+% Item & Quantity \\\hline
+% Widgets & 42 \\
+% Gadgets & 13
+% \end{tabular}
+% \caption{\label{tab:widgets}An example table.}
+% \end{table}
+
+
+\section{Standard Concepts of Statistical Trading}
+
+\subsection{Four Most Common HFT Strategies}
+
+\subsubsection{Passive Market Strategies}
+
+Passive market making primarily involves submitting non-marketable resting orders (bids and offers) that provide liquidity to the marketplace at specified prices. Profits come from earning the spread by buying at the bid and selling at the offer and capturing any liquidity rebates. Liquidity rebates is an important aspect of passive market making which are accessed by those seeking to trade immediately by taking liquidity. 
+
+Proprietary firms employing passive market making strategies have replaced more traditional types of liquidity providers in the equity market, and do not trade directly with customer order flow, but rather trade by submitting orders to external trading venues such as exchanges and ATSs. 
+
+\subsubsection{Arbitrage Strategies}
+
+An arbitrage strategy seeks to capture pricing inefficiencies between related products or markets. For example, the strategy seeks to identify discrepancies between the price of a portfolio and the underlying assets and capture the price difference by taking opposite positions on the portfolio and underlying assets. 
+
+In contrast to the passive market strategy that primarily involves providing liquidity, many arbitrage strategy are likely to involve taking liquidity. In this way, a proprietary firm using an arbitrage strategy can trade with a proprietary firm using a passive market strategy to achieve win-win results. 
+
+\subsubsection{Structural Strategies}
+
+Structural strategies are used by some proprietary firms to exploit structural vulnerabilities in the market or in certain market participants. Proprietary firms can profit by identifying market participants who offer executions at stale prices from fastest delivered market data or by setting up a NBBO to trigger guaranteed march trades in the opposite direction. 
+
+\subsubsection{Directional Strategies}
+
+Directional strategies anticipate intra-day price movement of a particular direction, which is not involved in neither passive market making nor arbitrage strategies. 
+
+There are two types of directional strategies – order anticipation and momentum ignition. Order anticipation strategies seek to ascertain the existence of one or more large orders in the market and trade ahead of the large orders to sell to/buy from the participants of large orders if a profitable price movement realized, which could be viewed as a free option to trade against if the price moves contrary to the proprietary firm’s position. Momentum Ignition Strategies initiate a series of orders and trades to ignite a rapid price move either up or down. Proprietary firm can profit by subsequently liquidating the position if successful in igniting a price movement. 
+\\
+\\
+\noindent \textbf{What distinguishes "alpha" strategies from other strategies} is that "alpha" strategies aim to outperform the market, bet on price movements, and predict prices. Thus, from the above descriptions of four types of strategies, arbitrage strategies and directional strategies actively predict price movements and could possibly generate alpha, whereas passive market strategies and structural strategies are not “alpha” strategies.
+
+
+% Track changes are available on all our \href{https://www.overleaf.com/user/subscription/plans}{premium plans}, and can be toggled on or off using the option at the top of the Review pane. Track changes allow you to keep track of every change made to the document, along with the person making the change. 
+
+\subsection{Estimate of the Profitability of High-frequency
+Traders}
+
+We estimate the average profitability of high-frequency traders in today's equity market to be around 57$\%$. This “back of the envelope” estimate comes from the observations of annualized alphas of aggressive HFTs and passive HFTs showed in Baron et al.2019\cite{Baron}, which make up a majority of the HFT market today, at 90.67$\%$ and 23.22$\%$, respectively.
+
+High frequency traders use leverage in their tradings. In more liquid markets such as the foreign exchange market, intra-day volume is so staggering that it creates small spreads that only offer material profit opportunities if they are traded in large volumes. So high frequency traders would use high leverage in these markets, maximizing trading volumes in order to take more substantial positions that otherwise might not be worthwhile. Whereas in less liquid markets such as small-cap stocks market, the spreads on offer are relatively much larger, so high frequency traders would use lower leverage in these markets. 
+
+
+\subsection{Does HFT Impose Risks of Systemic Nature?}
+
+Yes, high frequency trading can impose risks of systemic nature. S$\acute{a}$nchez\cite{SacacacanchezSerrano} identifies the existence of four HFT related vulnerabilities that may lead to systemic risk issues – adverse selection, correlation/herd behavior, market power and price discovery. The paper confirms that the first vulnerability, adverse selection, could create systemic risk, and it comes up with sound policies to address these systemic vulnerabilities based on academic literature findings and empirical findings. 
+
+We agree with the findings. To our understanding, adverse selection in the microeconomic concept means that the non-high-frequency traders in the market face information risk bought by high-frequency traders who have informed information and trade faster. Non-high-frequency traders may be crowed out from the market due to the substantially decreased information embedded in prices and slower trades, which will lead to the consequence of a dysfunctional and self-induced process of price information. The example of the “Flash Crash” of 6 May 2010 discussed in the paper is good empirical evidence.
+
+
+\subsection{A Intraday Equity “Alpha” Trading Strategy}
+
+In this section, we would like to propose an intraday dynamic pairs trading strategy using correlation and cointegration approach learned from QUANTCONNECT\cite{qc}. As noted in that article, "this strategy is especially profitable when the market is performing poorly", and we think it may perform well in the market that has been greatly impacted by the COVID-19 in recent years.
+
+\subsubsection{Methodology}
+
+The basic idea of the strategy is that it uses trading signals based on the regression residual ϵ and were modeled as a mean-reverting process. It can be split into 3 steps
+\begin{description}
+    \item[Step 1] Calculate correlation of stock pairs and select the pairs with correlation coefficient of at least a certain level, i.e. 0.9. The principle of calculating correlation between stock A and stock B is given by 
+    \[ \rho = \frac{\sum_i^N (A_i - \Bar{A})(B_i - \Bar{B})}{[\sum_i^N (A_i - \Bar{A})^2 \sum_i^N (B_i - \Bar{B})^2]^{1/2}}\]
+    \item[Step 2] Perform conintegration test for each stock pair and select the pairs with test value of equal or less than a certain level, i.e. -3.34. The definition of cointegration is: suppose $p_t^A$ and $p_t^B$ are the non-stationary price processes of stock A and stock B, if there exists a $\gamma$ such that the following equation is a stationary process
+    \[ p_t^A - \gamma p_t^B = \mu + \epsilon_t \]
+    where $\gamma$ is the cointegration coefficient, $\epsilon_t$ is the cointegration residual, then $p_t^A$ and $p_t^B$ are cointegrated. The conintegration test is defined under the assumption that $H_0:\gamma=0$. 
+    \item[Step 3] Define trading rules. For the regression residual $\epsilon_t$ of (stock A, stock B) passing step 1 and step 2, if $\epsilon_t$ is positive, short stock B and long stock A; if $\epsilon_t$ is negative, short stock A and long stock B; when $\epsilon_t$ returns to a certain level, close the pairs trading. 
+\end{description}
+
+\subsubsection{Data}
+
+We choose S&P 500 stocks and pair the stocks within a industry to obtain more pairs with high correlation. We use 10-minute stock data from 2019 to 2022 to backtest the strategy. 
+
+\subsubsection{Performance Guesstimate}
+
+We guesstimate a 1.168 Sharpe ratio for whole sample and a 1.861 Sharpe ratio for 10 best-performing stock pairs.
+
+
+
+
+
+
+
+
+
+% You can simply upload a \verb|.bib| file containing your BibTeX entries, created with a tool such as JabRef. You can then cite entries from it, like this: \cite{greenwade93}. Just remember to specify a bibliography style, as well as the filename of the \verb|.bib|. You can find a \href{https://www.overleaf.com/help/97-how-to-include-a-bibliography-using-bibtex}{video tutorial here} to learn more about BibTeX.
+
+% If you have an \href{https://www.overleaf.com/user/subscription/plans}{upgraded account}, you can also import your Mendeley or Zotero library directly as a \verb|.bib| file, via the upload menu in the file-tree.
+
+\section*{Reference}
+
+\bibliographystyle{alpha}
+\bibitem[1]{Baron}
+Baron, M., Brogaard, J., Hagstr$\Ddot{o}$mer, B., & Kirilenko, A. (2019). Risk and Return in High-Frequency Trading. Journal of Financial and Quantitative Analysis, 54(3), 993-1024. doi:10.1017/S0022109018001096
+
+\bibitem[2]{SacacacanchezSerrano}
+S$\acute{a}$nchez Serrano, Antonio. "High-Frequency Trading and Systemic Risk: A Structured Review of Findings and Policies" Review of Economics, vol. 71, no. 3, 2020, pp. 169-195. https://doi.org/10.1515/roe-2020-0028
+
+\bibitem[3]{qc}
+https://www.quantconnect.com/tutorials/strategy-library/intraday-dynamic-pairs-trading-using-correlation-and-cointegration-approach
+
+\end{document}
