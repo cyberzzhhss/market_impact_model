@@ -1,6 +1,6 @@
 eta             = 2.7888243693811527
-t_eta_residual  = 3.2322425103566914
-t_eta_paired    = 3.6705545004096787
+t_eta_residual  = 1.7567919038210407
+t_eta_paired    = 2.333847823190984
 beta            = 0.5450744771271434
-t_beta_residual = 3.1653507159675676
-t_beta_paired   = 2.020329812561972
+t_beta_residual = 1.3387826477887075
+t_beta_paired   = 3.884360547033785
